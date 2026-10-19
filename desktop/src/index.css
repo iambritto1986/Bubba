@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hippo: #9b8ae6;
+  --color-hippo-dark: #6f5fc4;
+  --color-hippo-belly: #c9bff5;
+  --color-blush: #f4a7c0;
+  --color-cream: #fffaf2;
+  --color-ink: #2b2540;
+  --color-mint: #5cc8a4;
+  --color-coral: #f07d6e;
+  --font-sans: ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+}
+
+/* The Tauri window is transparent: only Bubba and his UI should be visible. */
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* In a normal browser tab (vite dev without Tauri) show a backdrop so the UI is readable. */
+html:not(.in-tauri) body {
+  background: radial-gradient(circle at 50% 30%, #e9e4ff, #cfc6f5);
+}
+
+input, textarea { user-select: text; }
