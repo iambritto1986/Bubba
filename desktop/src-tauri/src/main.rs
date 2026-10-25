@@ -1,5 +1,5 @@
-// Prevents an extra console window on Windows in release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Prevents an extra console window on Windows.
+#![windows_subsystem = "windows"]
 
 fn main() {
     bubba_lib::run()

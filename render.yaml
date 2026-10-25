@@ -26,5 +26,9 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        value: hRbsi7Sgd2GnL8siHYj9
       - key: GEMINI_MODEL
         value: gemini-3.6-flash

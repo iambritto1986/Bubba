@@ -21,9 +21,16 @@ if (!CLERK_KEY) {
     </div>,
   );
 } else {
+  const origin = window.location.origin + "/";
   root.render(
     <StrictMode>
-      <ClerkProvider publishableKey={CLERK_KEY}>
+      <ClerkProvider
+        publishableKey={CLERK_KEY}
+        signInForceRedirectUrl={origin}
+        signUpForceRedirectUrl={origin}
+        signInFallbackRedirectUrl={origin}
+        signUpFallbackRedirectUrl={origin}
+      >
         <App />
       </ClerkProvider>
     </StrictMode>,

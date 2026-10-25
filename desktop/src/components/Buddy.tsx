@@ -13,9 +13,11 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
   const [intention, setIntention] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [today, setToday] = useState<{ sessions: number; minutes: number } | null>(null);
+  const [todayLoaded, setTodayLoaded] = useState(false);
   const name = profile.displayName ?? "friend";
 
-  const refreshToday = () => api<{ sessions: number; minutes: number }>("/api/sessions/today").then(setToday).catch(() => {});
+  const refreshToday = () =>
+    api<{ sessions: number; minutes: number }>("/api/sessions/today").then(setToday).catch(() => {}).finally(() => setTodayLoaded(true));
   useEffect(() => { refreshToday(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -46,11 +48,10 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
   };
 
   if (p.phase === "idle") {
+    const greeting = today?.sessions ? `${today.sessions} down today, ${name}! Another?` : `Ready to focus, ${name}?`;
     return (
-      <SpeechBubble id="idle">
-        <p className="text-sm font-semibold">
-          {today?.sessions ? `${today.sessions} down today, ${name}! Another?` : `Ready to focus, ${name}?`}
-        </p>
+      <SpeechBubble id="idle" say={todayLoaded ? greeting : undefined}>
+        <p className="text-sm font-semibold">{greeting}</p>
         <input
           value={intention}
           maxLength={200}
@@ -69,7 +70,10 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
 
   if (p.phase === "focus") {
     return (
-      <SpeechBubble id="focus">
+      <SpeechBubble
+        id="focus"
+        say={`Let's do this. ${profile.focusMinutes} minutes${intention ? ` on ${intention}` : ""}. I'll keep watch.`}
+      >
         <div className="flex items-center gap-3">
           <TimerRing msLeft={p.msLeft} progress={p.progress} color="var(--color-hippo-dark)" />
           <div className="min-w-0 flex-1">
@@ -87,7 +91,10 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
 
   if (p.phase === "check-in") {
     return (
-      <SpeechBubble id="check-in">
+      <SpeechBubble
+        id="check-in"
+        say={`Time's up, ${name}! ${intention ? `Did you finish ${intention}?` : "Did you get it done?"}`}
+      >
         <p className="text-sm font-semibold">
           Time's up, {name}! {intention ? <>Did you finish <b>{intention}</b>?</> : "Did you get it done?"}
         </p>

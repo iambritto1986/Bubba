@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { useSpeaking, useVoiceLevel } from "../lib/voice";
 
 export type Mood = "idle" | "happy" | "focus" | "sleepy" | "think" | "cheer" | "oops";
 
@@ -9,6 +10,8 @@ export type Mood = "idle" | "happy" | "focus" | "sleepy" | "think" | "cheer" | "
  */
 export function Bubba({ mood, size = 180 }: { mood: Mood; size?: number }) {
   const [blink, setBlink] = useState(false);
+  const talking = useSpeaking();
+  const level = useVoiceLevel();
 
   useEffect(() => {
     if (mood === "sleepy") return;
@@ -85,8 +88,8 @@ export function Bubba({ mood, size = 180 }: { mood: Mood; size?: number }) {
       <ellipse cx="100" cy="114" rx="40" ry="26" fill="var(--color-hippo-belly)" />
       <ellipse cx="88" cy="106" rx="4" ry="6" fill="var(--color-hippo-dark)" />
       <ellipse cx="112" cy="106" rx="4" ry="6" fill="var(--color-hippo-dark)" />
-      {/* mouth */}
-      <Mouth mood={mood} />
+      {/* mouth: moves with his voice while he talks */}
+      {talking ? <TalkingMouth level={level} /> : <Mouth mood={mood} />}
       {/* sleepy z's */}
       {mood === "sleepy" && (
         <motion.text
@@ -98,6 +101,16 @@ export function Bubba({ mood, size = 180 }: { mood: Mood; size?: number }) {
         </motion.text>
       )}
     </motion.svg>
+  );
+}
+
+function TalkingMouth({ level }: { level: number }) {
+  const open = 2 + level * 11;
+  return (
+    <g>
+      <ellipse cx="100" cy={122 + open / 3} rx={10 + level * 4} ry={open} fill="var(--color-ink)" />
+      {open > 6 && <ellipse cx="100" cy={122 + open / 3 + open * 0.55} rx={6} ry={open * 0.3} fill="var(--color-blush)" />}
+    </g>
   );
 }
 

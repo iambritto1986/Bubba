@@ -1,8 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
+import { useSay } from "../lib/voice";
 
-/** Bubba's speech bubble. Changing `id` animates the old line out and the new one in. */
-export function SpeechBubble({ id, children }: { id: string; children: ReactNode }) {
+/** Bubba's speech bubble. Changing `id` animates the old line out and the new one in; `say` is spoken aloud. */
+export function SpeechBubble({ id, say, children }: { id: string; say?: string; children: ReactNode }) {
+  useSay(say);
   return (
     <AnimatePresence mode="wait">
       <motion.div
