@@ -16,14 +16,19 @@ const MAX_CACHE = 300;
 
 speak.post("/", async (req, res) => {
   if (!KEY) return res.status(503).json({ error: "voice not configured" });
-  const body = z.object({ text: z.string().trim().min(1).max(600) }).safeParse(req.body);
+  const body = z.object({
+    text: z.string().trim().min(1).max(600),
+    voiceId: z.string().regex(/^[A-Za-z0-9]{10,40}$/).optional(), // the chosen companion's voice
+  }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.flatten() });
   const text = body.data.text;
+  const voice = body.data.voiceId ?? VOICE;
+  const key = `${voice}|${text}`;
 
-  let audio = cache.get(text);
+  let audio = cache.get(key);
   if (!audio) {
     const r = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${VOICE}?output_format=mp3_44100_128`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`,
       {
         method: "POST",
         headers: { "xi-api-key": KEY, "content-type": "application/json", accept: "audio/mpeg" },
@@ -40,7 +45,7 @@ speak.post("/", async (req, res) => {
     }
     audio = Buffer.from(await r.arrayBuffer());
     if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value!);
-    cache.set(text, audio);
+    cache.set(key, audio);
   }
   res.set({ "content-type": "audio/mpeg", "cache-control": "private, max-age=86400" }).send(audio);
 });

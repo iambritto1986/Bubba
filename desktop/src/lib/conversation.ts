@@ -41,7 +41,11 @@ function cleanup(error: string | null = null) {
   set({ status: "off", error });
 }
 
-export async function startChat(getToken: () => Promise<string>, vars: Record<string, string | number>) {
+export async function startChat(
+  getToken: () => Promise<string>,
+  vars: Record<string, string | number>,
+  opts: { voiceId?: string; firstMessage?: string } = {},
+) {
   if (state.status !== "off") return;
   set({ status: "connecting", agentLine: null, userLine: null, error: null });
   setLiveVoice(true);
@@ -54,6 +58,10 @@ export async function startChat(getToken: () => Promise<string>, vars: Record<st
       conversationToken,
       connectionType: "webrtc",
       dynamicVariables: vars,
+      overrides: {
+        ...(opts.voiceId ? { tts: { voiceId: opts.voiceId } } : {}),
+        ...(opts.firstMessage ? { agent: { firstMessage: opts.firstMessage } } : {}),
+      },
       clientTools,
       onModeChange: ({ mode: m }) => { mode = m; if (conv) set({ status: m }); },
       onMessage: ({ role, message }) => set(role === "agent" ? { agentLine: message } : { userLine: message }),

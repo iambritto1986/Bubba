@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { CHARACTERS, getCharacter } from "./characters";
 import { API_URL } from "./env";
 
 /**
@@ -40,7 +41,9 @@ export function setLiveVoice(on: boolean) {
 export function pushVoiceLevel(v: number, isSpeaking: boolean) { if (live) setLevel(v, isSpeaking); }
 
 function fetchLine(text: string): Promise<string | null> {
-  let p = urls.get(text);
+  const voiceId = CHARACTERS[getCharacter() ?? "oliver"].voiceId;
+  const key = `${voiceId}|${text}`;
+  let p = urls.get(key);
   if (!p) {
     p = (async () => {
       const token = await getToken?.();
@@ -48,14 +51,14 @@ function fetchLine(text: string): Promise<string | null> {
       const res = await fetch(`${API_URL}/api/speak`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, ...(voiceId.endsWith("PENDING") ? {} : { voiceId }) }),
       });
       if (res.status === 503) disabled = true;
       if (!res.ok) return null;
       return URL.createObjectURL(await res.blob());
     })().catch(() => null);
-    p.then((u) => { if (!u) urls.delete(text); });
-    urls.set(text, p);
+    p.then((u) => { if (!u) urls.delete(key); });
+    urls.set(key, p);
   }
   return p;
 }

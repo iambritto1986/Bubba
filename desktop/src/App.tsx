@@ -2,9 +2,11 @@ import { SignIn, SignUp, useAuth, useClerk, useUser } from "@clerk/react";
 import { useEffect, useState } from "react";
 import { Bubba, type Mood } from "./components/Bubba";
 import { Buddy } from "./components/Buddy";
+import { CharacterPicker } from "./components/CharacterPicker";
 import { Onboarding } from "./components/Onboarding";
 import { Btn, SpeechBubble } from "./components/SpeechBubble";
 import { useApi, type Profile } from "./lib/api";
+import { isCharacterId, setCharacter, setPicking, useCharacter, usePicking, type CharacterId } from "./lib/characters";
 import { setMuted, setVoiceTokenGetter, stopSpeaking, useMuted } from "./lib/voice";
 import { bringBack, tuckAway, useTucked } from "./lib/tuck";
 import { SIZES, setWindowSize, startDrag } from "./lib/windowCtl";
@@ -89,9 +91,14 @@ function SignedInFlow({ onMood }: { onMood: (m: Mood) => void }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const character = useCharacter();
+  const picking = usePicking();
+
   const load = () => {
     setError(null);
-    api<Profile>("/api/me").then(setProfile).catch((e: Error) => { setError(e.message); onMood("oops"); });
+    api<Profile>("/api/me")
+      .then((p) => { setProfile(p); if (isCharacterId(p.character)) setCharacter(p.character); })
+      .catch((e: Error) => { setError(e.message); onMood("oops"); });
   };
   useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -104,6 +111,16 @@ function SignedInFlow({ onMood }: { onMood: (m: Mood) => void }) {
     );
   }
   if (!profile) return null;
+
+  // Step one for everyone: pick a companion (also reachable later from the toolbar).
+  if (!isCharacterId(profile.character) || picking) {
+    const pick = async (id: CharacterId) => {
+      setCharacter(id);
+      onMood("cheer");
+      setProfile(await api<Profile>("/api/me", { method: "PATCH", body: { character: id } }).catch(() => ({ ...profile, character: id })));
+    };
+    return <CharacterPicker onPick={pick} onCancel={isCharacterId(profile.character) && character ? () => setPicking(false) : undefined} />;
+  }
 
   if (!profile.displayName) {
     return (
@@ -153,6 +170,7 @@ function Shell({ mood, children }: { mood: Mood; children: React.ReactNode }) {
       <div className={`group h-full flex-col items-center justify-end gap-3 p-4 font-sans ${tucked ? "hidden" : "flex"}`}>
         <div className="pointer-events-none fixed right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
           <ToolBtn label={muted ? "Unmute Bubba" : "Mute Bubba"} onClick={() => setMuted(!muted)}>{muted ? "🔇" : "🔊"}</ToolBtn>
+          {isSignedIn && <ToolBtn label="Switch companion" onClick={() => setPicking(true)}>⇄</ToolBtn>}
           {isSignedIn && <ToolBtn label="Sign out" onClick={() => signOut()}>⎋</ToolBtn>}
           <ToolBtn label="Tuck Bubba away" onClick={tuckAway}>–</ToolBtn>
         </div>

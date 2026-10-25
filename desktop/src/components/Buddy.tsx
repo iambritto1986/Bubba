@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useApi, type Profile } from "../lib/api";
+import { CHARACTERS, getCharacter } from "../lib/characters";
 import { chatActive, setChatTools, startChat, stopChat, tellBubba, useChat } from "../lib/conversation";
 import { tuckAway } from "../lib/tuck";
 import { fmt, usePomodoro } from "../lib/usePomodoro";
@@ -107,6 +108,7 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
 
   const toggleTalk = () => {
     if (talking) return void stopChat();
+    const who = CHARACTERS[getCharacter() ?? "oliver"];
     void startChat(
       async () => (await api<{ token: string }>("/api/voice/token", { method: "POST" })).token,
       {
@@ -114,6 +116,12 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
         focus_minutes: profile.focusMinutes,
         timer_state: p.phase === "focus" ? `focus session running, ${fmt(p.msLeft)} left${p.paused ? " (paused)" : ""}` : p.phase,
         sessions_today: today?.sessions ?? 0,
+        companion_name: who.name,
+        persona: who.persona,
+      },
+      {
+        voiceId: who.voiceId.endsWith("PENDING") ? undefined : who.voiceId,
+        firstMessage: who.greeting.replace("{{user_name}}", name),
       },
     );
   };
@@ -214,12 +222,12 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
 /** The mic: click to start talking to Bubba, click again to hang up. */
 function TalkBar({ status, error, onToggle }: { status: string; error: string | null; onToggle: () => void }) {
   const on = status !== "off";
-  const label = { off: "Talk to Bubba", connecting: "Connecting…", listening: "Listening — just talk", speaking: "Bubba is talking" }[status] ?? "";
+  const label = { off: `Talk to ${CHARACTERS[getCharacter() ?? "oliver"].name}`, connecting: "Connecting…", listening: "Listening — just talk", speaking: "Talking" }[status] ?? "";
   return (
     <div className="flex items-center justify-center gap-2">
       <button
         onClick={onToggle}
-        title={on ? "End conversation" : "Talk to Bubba"}
+        title={on ? "End conversation" : label}
         className={`relative flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold shadow transition-[background-color,transform] active:scale-[0.97] ${
           on ? "bg-coral text-white" : "bg-hippo-dark text-white hover:bg-[#5f50b3]"
         }`}

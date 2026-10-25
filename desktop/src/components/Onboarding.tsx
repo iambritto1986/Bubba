@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CHARACTERS, useCharacter } from "../lib/characters";
 import { Btn, SpeechBubble } from "./SpeechBubble";
 
 /** First run: Bubba introduces himself and asks what to call you. */
@@ -6,12 +7,13 @@ export function Onboarding({ suggested, onSave }: { suggested?: string; onSave: 
   const [step, setStep] = useState<"hello" | "name">("hello");
   const [name, setName] = useState(suggested ?? "");
   const [saving, setSaving] = useState(false);
+  const companion = CHARACTERS[useCharacter() ?? "oliver"].name;
 
   if (step === "hello") {
     return (
       <SpeechBubble id="hello">
         <p className="text-sm font-semibold leading-snug">
-          Hi there! I'm <b>Bubba</b>. I'll keep you company while you focus, and quiz you on your breaks so your brain stays fresh.
+          Hi there! I'm <b>{companion}</b>. I'll keep you company while you focus, and quiz you on your breaks so your brain stays fresh.
         </p>
         <div className="mt-2 flex justify-end"><Btn onClick={() => setStep("name")}>Nice to meet you!</Btn></div>
       </SpeechBubble>
