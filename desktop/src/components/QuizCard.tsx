@@ -1,7 +1,6 @@
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useApi, type QuizQuestion, type QuizResult } from "../lib/api";
-import { useSay } from "../lib/voice";
 import type { Mood } from "./Bubba";
 
 /** Fetches one question from the API (Gemini) and lets the user answer it. */
@@ -18,9 +17,6 @@ export function QuizCard({ onMood }: { onMood: (m: Mood) => void }) {
       .catch((e: Error) => { setError(e.message); onMood("oops"); });
   };
   useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Read the question out, then the verdict once answered.
-  useSay(result ? `${result.correct ? "Nailed it!" : "Close!"} ${result.explanation}` : q?.question);
 
   const answer = async (i: number) => {
     if (!q || result) return;

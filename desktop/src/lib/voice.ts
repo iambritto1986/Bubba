@@ -28,6 +28,16 @@ let lastText = "";
 let lastAt = 0;
 let pending: HTMLAudioElement | null = null;
 let disabled = false; // server says voice isn't configured → stay quiet
+let live = false;     // a two-way voice chat owns the speaker right now
+
+/** While a live voice chat is running, one-off lines stay quiet and the chat drives the mouth. */
+export function setLiveVoice(on: boolean) {
+  live = on;
+  if (on) { cancelAnimationFrame(raf); current?.pause(); current = null; pending = null; }
+  setLevel(0, false);
+}
+/** Live chat pushes its output loudness here so Bubba's mouth moves with it. */
+export function pushVoiceLevel(v: number, isSpeaking: boolean) { if (live) setLevel(v, isSpeaking); }
 
 function fetchLine(text: string): Promise<string | null> {
   let p = urls.get(text);
@@ -100,13 +110,13 @@ if (typeof window !== "undefined") {
 /** Make Bubba say a line. Interrupts whatever he was saying. */
 export async function say(text: string | null | undefined) {
   const line = text?.replace(/\s+/g, " ").trim();
-  if (!line || muted || disabled) return;
+  if (!line || muted || disabled || live) return;
   const now = Date.now();
   if (line === lastText && now - lastAt < 2000) return; // StrictMode double-mount / re-renders
   lastText = line; lastAt = now;
   stopSpeaking();
   const url = await fetchLine(line);
-  if (!url || line !== lastText || muted) return; // a newer line won the race
+  if (!url || line !== lastText || muted || live) return; // a newer line won the race
   const audio = new Audio(url);
   audio.crossOrigin = "anonymous";
   audio.onended = () => { if (current === audio) stopSpeaking(); };

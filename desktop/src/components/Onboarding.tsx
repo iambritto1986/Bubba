@@ -9,7 +9,7 @@ export function Onboarding({ suggested, onSave }: { suggested?: string; onSave: 
 
   if (step === "hello") {
     return (
-      <SpeechBubble id="hello" say="Hi there! I'm Bubba. I'll keep you company while you focus, and quiz you on your breaks so your brain stays fresh.">
+      <SpeechBubble id="hello">
         <p className="text-sm font-semibold leading-snug">
           Hi there! I'm <b>Bubba</b>. I'll keep you company while you focus, and quiz you on your breaks so your brain stays fresh.
         </p>
@@ -19,7 +19,7 @@ export function Onboarding({ suggested, onSave }: { suggested?: string; onSave: 
   }
 
   return (
-    <SpeechBubble id="name" say="What should I call you?">
+    <SpeechBubble id="name">
       <form
         onSubmit={async (e) => {
           e.preventDefault();

@@ -27,6 +27,13 @@ export async function startDrag() {
   await getCurrentWindow().startDragging();
 }
 
+/** Minimise to the taskbar (click Bubba's taskbar button to bring him back). */
+export async function minimizeWindow() {
+  if (!isTauri) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().minimize();
+}
+
 export async function hideWindow() {
   if (!isTauri) return;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");

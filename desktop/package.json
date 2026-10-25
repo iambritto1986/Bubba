@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/react": "^6.17.8",
+    "@elevenlabs/client": "^1.30.0",
     "@tauri-apps/api": "^2.12.4",
     "motion": "^14.4.0",
     "react": "^19.3.1",

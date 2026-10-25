@@ -6,7 +6,8 @@ import { Onboarding } from "./components/Onboarding";
 import { Btn, SpeechBubble } from "./components/SpeechBubble";
 import { useApi, type Profile } from "./lib/api";
 import { setMuted, setVoiceTokenGetter, stopSpeaking, useMuted } from "./lib/voice";
-import { SIZES, hideWindow, setWindowSize, startDrag } from "./lib/windowCtl";
+import { bringBack, tuckAway, useTucked } from "./lib/tuck";
+import { SIZES, setWindowSize, startDrag } from "./lib/windowCtl";
 
 export default function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -123,18 +124,44 @@ function Shell({ mood, children }: { mood: Mood; children: React.ReactNode }) {
   const { isSignedIn } = useAuth();
   const { signOut } = useClerk();
   const muted = useMuted();
+  const tucked = useTucked();
+  const [waking, setWaking] = useState(false);
+
+  const comeBack = () => {
+    void bringBack();
+    setWaking(true);
+    window.setTimeout(() => setWaking(false), 1400);
+  };
+
   return (
-    <div className="group flex h-full flex-col items-center justify-end gap-3 p-4 font-sans">
-      <div className="pointer-events-none fixed right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-        <ToolBtn label={muted ? "Unmute Bubba" : "Mute Bubba"} onClick={() => setMuted(!muted)}>{muted ? "🔇" : "🔊"}</ToolBtn>
-        {isSignedIn && <ToolBtn label="Sign out" onClick={() => signOut()}>⎋</ToolBtn>}
-        <ToolBtn label="Hide Bubba" onClick={hideWindow}>–</ToolBtn>
+    <>
+      {/* Tucked away: just his head peeking up from the bottom of the screen. Click to bring him back. */}
+      {tucked && (
+        <button
+          onClick={comeBack}
+          title="Bring Bubba back"
+          aria-label="Bring Bubba back"
+          className="group/peek fixed inset-0 cursor-pointer overflow-hidden bg-transparent"
+        >
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[30%] transition-transform duration-300 ease-out group-hover/peek:translate-y-[18%]">
+            <Bubba mood={mood === "sleepy" ? "sleepy" : "idle"} size={116} />
+          </div>
+        </button>
+      )}
+
+      {/* Children stay mounted while tucked so the timer and chat keep running. */}
+      <div className={`group h-full flex-col items-center justify-end gap-3 p-4 font-sans ${tucked ? "hidden" : "flex"}`}>
+        <div className="pointer-events-none fixed right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+          <ToolBtn label={muted ? "Unmute Bubba" : "Mute Bubba"} onClick={() => setMuted(!muted)}>{muted ? "🔇" : "🔊"}</ToolBtn>
+          {isSignedIn && <ToolBtn label="Sign out" onClick={() => signOut()}>⎋</ToolBtn>}
+          <ToolBtn label="Tuck Bubba away" onClick={tuckAway}>–</ToolBtn>
+        </div>
+        <div className="w-full">{children}</div>
+        <div onMouseDown={(e) => e.button === 0 && startDrag()} className="cursor-grab active:cursor-grabbing">
+          <Bubba mood={waking ? "cheer" : mood} size={170} />
+        </div>
       </div>
-      <div className="w-full">{children}</div>
-      <div onMouseDown={(e) => e.button === 0 && startDrag()} className="cursor-grab active:cursor-grabbing">
-        <Bubba mood={mood} size={170} />
-      </div>
-    </div>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import { me } from "./routes/me.js";
 import { sessions } from "./routes/sessions.js";
 import { quiz } from "./routes/quiz.js";
 import { speak } from "./routes/speak.js";
+import { voiceChat } from "./routes/voiceChat.js";
 
 const origins = [
   "http://localhost:1420",   // Vite dev server inside Tauri
@@ -32,6 +33,7 @@ app.use("/api/me", me);
 app.use("/api/sessions", sessions);
 app.use("/api/quiz", quiz);
 app.use("/api/speak", speak);
+app.use("/api/voice", voiceChat);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

@@ -30,5 +30,7 @@ services:
         sync: false
       - key: ELEVENLABS_VOICE_ID
         value: hRbsi7Sgd2GnL8siHYj9
+      - key: ELEVENLABS_AGENT_ID
+        value: agent_5801m5rjhr0webbbejbcg2szxhmz
       - key: GEMINI_MODEL
         value: gemini-3.6-flash

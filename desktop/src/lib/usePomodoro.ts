@@ -42,7 +42,7 @@ export function usePomodoro(focusMinutes: number, breakMinutes: number) {
     msLeft,
     progress: total.current ? 1 - msLeft / total.current : 0,
     paused: pausedLeft !== null,
-    startFocus: useCallback(() => run(focusMinutes, "focus"), [focusMinutes]),
+    startFocus: useCallback((minutes?: number) => run(minutes && minutes > 0 ? minutes : focusMinutes, "focus"), [focusMinutes]),
     startBreak: useCallback(() => run(breakMinutes, "break"), [breakMinutes]),
     pause: () => { if (endsAt) { setPausedLeft(Math.max(0, endsAt - Date.now())); setEndsAt(null); } },
     resume: () => { if (pausedLeft !== null) { setNow(Date.now()); setEndsAt(Date.now() + pausedLeft); setPausedLeft(null); } },

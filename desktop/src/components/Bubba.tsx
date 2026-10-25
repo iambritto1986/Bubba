@@ -1,140 +1,224 @@
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { useChat } from "../lib/conversation";
+import { useGaze } from "../lib/useGaze";
 import { useSpeaking, useVoiceLevel } from "../lib/voice";
 
 export type Mood = "idle" | "happy" | "focus" | "sleepy" | "think" | "cheer" | "oops";
 
+const BODY = "M100 42 C146 42 170 80 170 124 C170 166 142 190 100 190 C58 190 30 166 30 124 C30 80 54 42 100 42 Z";
+const INK = "#2a2230";
+
 /**
- * Placeholder Bubba, drawn in SVG. The Rive character replaces this later;
- * the rest of the app only talks to it through `mood`.
+ * Bubba: a soft, fuzzy plush creature drawn in SVG.
+ * Fur comes from an SVG displacement filter; everything else is driven by state:
+ * mood (from the app), whether he's listening/thinking (voice chat), how loud he's talking, and where your cursor is.
  */
 export function Bubba({ mood, size = 180 }: { mood: Mood; size?: number }) {
-  const [blink, setBlink] = useState(false);
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const ref = (n: string) => `${n}-${uid}`;
+  const chat = useChat();
   const talking = useSpeaking();
   const level = useVoiceLevel();
+  const gaze = useGaze();
+  const [blink, setBlink] = useState(false);
 
+  const listening = chat.status === "listening";
+  const thinking = mood === "think" || chat.status === "connecting";
+  const asleep = mood === "sleepy";
+  const cheering = mood === "cheer";
+
+  // Random blinks, sometimes a double blink.
   useEffect(() => {
-    if (mood === "sleepy") return;
-    let t: number;
+    if (asleep) return;
+    let t = 0;
     const loop = () => {
       t = window.setTimeout(() => {
         setBlink(true);
-        window.setTimeout(() => setBlink(false), 130);
+        window.setTimeout(() => setBlink(false), 120);
+        if (Math.random() < 0.25) window.setTimeout(() => { setBlink(true); window.setTimeout(() => setBlink(false), 110); }, 260);
         loop();
-      }, 2200 + Math.random() * 3200);
+      }, 2000 + Math.random() * 3500);
     };
     loop();
     return () => window.clearTimeout(t);
-  }, [mood]);
+  }, [asleep]);
 
-  const look = mood === "think" ? { x: 2, y: -4 } : mood === "focus" ? { x: 0, y: 2 } : { x: 0, y: 0 };
-  const eyesClosed = mood === "sleepy" || blink;
-  const bounce =
-    mood === "cheer"
-      ? { y: [0, -18, 0, -10, 0], transition: { duration: 0.9, repeat: Infinity, repeatDelay: 0.6 } }
-      : mood === "sleepy"
-        ? { y: [0, 2, 0], scaleY: [1, 0.98, 1], transition: { duration: 4, repeat: Infinity } }
-        : { y: [0, -4, 0], transition: { duration: 3, repeat: Infinity, ease: "easeInOut" as const } };
+  const look =
+    thinking ? { x: 5, y: -6 } :
+    mood === "focus" ? { x: 0, y: 4 } :
+    asleep ? { x: 0, y: 0 } :
+    { x: gaze.x * 7, y: gaze.y * 5 };
+
+  const bodyAnim =
+    asleep ? { y: [0, 1.5, 0], scaleY: [1, 0.985, 1], scaleX: [1, 1.012, 1], rotate: 0, transition: { duration: 4.2, repeat: Infinity, ease: "easeInOut" as const } } :
+    cheering ? { y: [0, -24, 0, -12, 0], scaleY: [1, 1.05, 0.93, 1.02, 1], scaleX: [1, 0.96, 1.06, 0.99, 1], rotate: 0, transition: { duration: 0.95, repeat: Infinity, repeatDelay: 0.5 } } :
+    thinking ? { rotate: [-4, 4, -4], y: 0, transition: { duration: 2.6, repeat: Infinity, ease: "easeInOut" as const } } :
+    mood === "oops" ? { rotate: -7, y: 3, scaleY: 0.97, transition: { type: "spring" as const, stiffness: 220, damping: 12 } } :
+    listening ? { y: -4, rotate: gaze.x * 3, scaleY: 1.025, scaleX: 0.99, transition: { type: "spring" as const, stiffness: 240, damping: 18 } } :
+    { y: [0, -3, 0], scaleY: [1, 1.018, 1], rotate: 0, transition: { duration: 3.4, repeat: Infinity, ease: "easeInOut" as const } };
+
+  // Ears perk up when he listens, droop when he sleeps.
+  const ear = (side: -1 | 1) => ({
+    rotate: listening ? side * -16 : asleep ? side * 14 : thinking ? side * -6 : 0,
+    y: listening ? -5 : asleep ? 3 : 0,
+    transition: { type: "spring" as const, stiffness: 300, damping: 14 },
+  });
+  // Little arms: up for a cheer, small gestures while talking.
+  const arm = (side: -1 | 1) => ({
+    rotate: cheering ? side * 70 : talking ? side * (8 + level * 25) : mood === "oops" ? side * 30 : 0,
+    transition: { type: "spring" as const, stiffness: 260, damping: 15 },
+  });
+
+  const talkLift = talking ? level * 4 : 0;
 
   return (
-    <motion.svg
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      animate={bounce}
-      style={{ originY: 1, overflow: "visible" }}
-      aria-label={`Bubba is ${mood}`}
-    >
-      {/* shadow */}
-      <ellipse cx="100" cy="196" rx="62" ry="5" fill="#2b2540" opacity="0.12" />
-      {/* feet */}
-      <ellipse cx="70" cy="188" rx="16" ry="9" fill="var(--color-hippo-dark)" />
-      <ellipse cx="130" cy="188" rx="16" ry="9" fill="var(--color-hippo-dark)" />
-      {/* body + belly */}
-      <ellipse cx="100" cy="152" rx="68" ry="40" fill="var(--color-hippo)" />
-      <ellipse cx="100" cy="162" rx="40" ry="24" fill="var(--color-hippo-belly)" />
-      {/* ears */}
-      {[62, 138].map((x) => (
-        <g key={x}>
-          <ellipse cx={x} cy="52" rx="11" ry="13" fill="var(--color-hippo)" />
-          <ellipse cx={x} cy="54" rx="5.5" ry="7" fill="var(--color-blush)" />
-        </g>
-      ))}
-      {/* head */}
-      <ellipse cx="100" cy="92" rx="58" ry="47" fill="var(--color-hippo)" />
-      {/* eyes */}
-      {[80, 120].map((x) =>
-        eyesClosed ? (
-          <path key={x} d={`M${x - 8} 80 Q${x} 86 ${x + 8} 80`} stroke="var(--color-ink)" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-        ) : (
-          <g key={x}>
-            <circle cx={x} cy="78" r="11" fill="white" />
-            <circle cx={x + look.x} cy={79 + look.y} r="6.5" fill="var(--color-ink)" />
-            <circle cx={x + look.x + 2.5} cy={76 + look.y} r="2.2" fill="white" />
+    <motion.svg width={size} height={size} viewBox="0 0 200 210" style={{ overflow: "visible" }} aria-label={`Bubba is ${listening ? "listening" : thinking ? "thinking" : talking ? "talking" : mood}`}>
+      <defs>
+        <radialGradient id={ref("fur")} cx="40%" cy="32%" r="78%">
+          <stop offset="0%" stopColor="#FFFCF7" />
+          <stop offset="55%" stopColor="#FBEEE2" />
+          <stop offset="100%" stopColor="#E7CFC0" />
+        </radialGradient>
+        <radialGradient id={ref("belly")} cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stopColor="#F2E7FB" />
+          <stop offset="100%" stopColor="#E3D2F2" />
+        </radialGradient>
+        <radialGradient id={ref("cheek")}>
+          <stop offset="0%" stopColor="#FF9EA2" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#FF9EA2" stopOpacity="0" />
+        </radialGradient>
+        <filter id={ref("fuzz")} x="-15%" y="-15%" width="130%" height="130%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id={ref("grain")}>
+          <feTurbulence type="fractalNoise" baseFrequency="1.3" numOctaves="2" seed="2" />
+          <feColorMatrix values="0 0 0 0 0.55  0 0 0 0 0.42  0 0 0 0 0.38  0.5 0 0 0 -0.12" />
+        </filter>
+        <filter id={ref("soft")}><feGaussianBlur stdDeviation="6" /></filter>
+        <clipPath id={ref("clip")}><path d={BODY} /></clipPath>
+      </defs>
+
+      {/* ground shadow */}
+      <motion.ellipse cx="100" cy="196" rx="58" ry="6" fill={INK} opacity={0.13}
+        animate={cheering ? { rx: [58, 40, 58, 48, 58] } : { rx: 58 }} transition={cheering ? { duration: 0.95, repeat: Infinity, repeatDelay: 0.5 } : {}} />
+
+      <motion.g animate={bodyAnim} style={{ originX: 0.5, originY: 1 }}>
+        <g transform={`translate(0 ${-talkLift})`}>
+          {/* ears (behind the body) */}
+          <g filter={`url(#${ref("fuzz")})`}>
+            {([-1, 1] as const).map((s) => (
+              <motion.g key={s} animate={ear(s)} style={{ originX: 0.5, originY: 1 }}>
+                <ellipse cx={100 + s * 34} cy="50" rx="15" ry="14" fill={`url(#${ref("fur")})`} />
+                <ellipse cx={100 + s * 34} cy="51" rx="8" ry="7" fill="#FFC6B4" />
+              </motion.g>
+            ))}
           </g>
-        ),
-      )}
-      {/* focus brows */}
-      {mood === "focus" && (
-        <g stroke="var(--color-hippo-dark)" strokeWidth="3.5" strokeLinecap="round">
-          <path d="M70 63 L88 66" />
-          <path d="M130 63 L112 66" />
+
+          {/* arms, feet, body: all fuzzy */}
+          <g filter={`url(#${ref("fuzz")})`}>
+            {([-1, 1] as const).map((s) => (
+              <motion.ellipse key={`arm${s}`} cx={100 + s * 72} cy="138" rx="11" ry="17" fill={`url(#${ref("fur")})`}
+                animate={arm(s)} style={{ originX: 0.5, originY: 0.15 }} />
+            ))}
+            <ellipse cx="74" cy="188" rx="17" ry="9" fill="#F3DDD0" />
+            <ellipse cx="126" cy="188" rx="17" ry="9" fill="#F3DDD0" />
+            <path d={BODY} fill={`url(#${ref("fur")})`} />
+            <ellipse cx="100" cy="160" rx="38" ry="25" fill={`url(#${ref("belly")})`} opacity="0.9" />
+          </g>
+
+          {/* fur grain + a soft top highlight, kept inside the body */}
+          <g clipPath={`url(#${ref("clip")})`}>
+            <rect x="20" y="30" width="160" height="170" filter={`url(#${ref("grain")})`} opacity="0.55" />
+            <ellipse cx="84" cy="70" rx="34" ry="16" fill="white" opacity="0.45" filter={`url(#${ref("soft")})`} />
+          </g>
+
+          {/* face */}
+          <motion.g animate={{ x: look.x * 0.35, y: look.y * 0.3 }} transition={{ type: "spring", stiffness: 120, damping: 16 }}>
+            <circle cx="64" cy="126" r="15" fill={`url(#${ref("cheek")})`} opacity={cheering || talking ? 1 : 0.8} />
+            <circle cx="136" cy="126" r="15" fill={`url(#${ref("cheek")})`} opacity={cheering || talking ? 1 : 0.8} />
+            <Eyes x={look.x} y={look.y} closed={asleep || blink} happy={cheering} wide={listening} sleepy={mood === "focus"} />
+            <Mouth mood={mood} talking={talking} level={level} />
+          </motion.g>
         </g>
-      )}
-      {/* cheeks */}
-      <circle cx="62" cy="104" r="8" fill="var(--color-blush)" opacity="0.55" />
-      <circle cx="138" cy="104" r="8" fill="var(--color-blush)" opacity="0.55" />
-      {/* snout */}
-      <ellipse cx="100" cy="114" rx="40" ry="26" fill="var(--color-hippo-belly)" />
-      <ellipse cx="88" cy="106" rx="4" ry="6" fill="var(--color-hippo-dark)" />
-      <ellipse cx="112" cy="106" rx="4" ry="6" fill="var(--color-hippo-dark)" />
-      {/* mouth: moves with his voice while he talks */}
-      {talking ? <TalkingMouth level={level} /> : <Mouth mood={mood} />}
-      {/* sleepy z's */}
-      {mood === "sleepy" && (
-        <motion.text
-          x="150" y="42" fontSize="22" fontWeight="800" fill="var(--color-hippo-dark)"
-          animate={{ opacity: [0, 1, 0], y: [0, -10, -20] }}
-          transition={{ duration: 2.4, repeat: Infinity }}
-        >
-          z
-        </motion.text>
-      )}
+
+        {/* status touches */}
+        {listening && (
+          <g stroke="#7FC8A9" strokeWidth="3" strokeLinecap="round" fill="none">
+            {[0, 1].map((i) => (
+              <motion.path key={i} d={`M${158 + i * 8} ${36 - i * 4} q ${6 + i * 3} 9 0 ${18 + i * 7}`}
+                animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.25 }} />
+            ))}
+          </g>
+        )}
+        {thinking && (
+          <g fill="#B9A6D9">
+            {[0, 1, 2].map((i) => (
+              <motion.circle key={i} cx={150 + i * 11} cy={30 - i * 6} r={3 + i}
+                animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} />
+            ))}
+          </g>
+        )}
+        {asleep && (
+          <motion.text x="152" y="40" fontSize="22" fontWeight="800" fill="#B9A6D9"
+            animate={{ opacity: [0, 1, 0], y: [0, -10, -20] }} transition={{ duration: 2.4, repeat: Infinity }}>z</motion.text>
+        )}
+      </motion.g>
     </motion.svg>
   );
 }
 
-function TalkingMouth({ level }: { level: number }) {
-  const open = 2 + level * 11;
+function Eyes({ x, y, closed, happy, wide, sleepy }: { x: number; y: number; closed: boolean; happy: boolean; wide: boolean; sleepy: boolean }) {
+  const r = wide ? 8 : 7;
   return (
     <g>
-      <ellipse cx="100" cy={122 + open / 3} rx={10 + level * 4} ry={open} fill="var(--color-ink)" />
-      {open > 6 && <ellipse cx="100" cy={122 + open / 3 + open * 0.55} rx={6} ry={open * 0.3} fill="var(--color-blush)" />}
+      {[78, 122].map((cx) => {
+        const ex = cx + x * 0.5, ey = 106 + y * 0.5;
+        if (happy) return <path key={cx} d={`M${ex - 8} ${ey + 2} Q${ex} ${ey - 8} ${ex + 8} ${ey + 2}`} stroke={INK} strokeWidth="3.6" strokeLinecap="round" fill="none" />;
+        if (closed) return <path key={cx} d={`M${ex - 7} ${ey} Q${ex} ${ey + 5} ${ex + 7} ${ey}`} stroke={INK} strokeWidth="3.4" strokeLinecap="round" fill="none" />;
+        return (
+          <g key={cx}>
+            <circle cx={ex} cy={ey} r={r} fill={INK} />
+            <circle cx={ex - 2.4 + x * 0.15} cy={ey - 2.8 + y * 0.15} r={2.4} fill="white" />
+            <circle cx={ex + 2.2} cy={ey + 2.4} r={1} fill="white" opacity="0.7" />
+            {sleepy && (
+              <g>
+                <path d={`M${ex - 9.5} ${ey - 0.5} Q${ex} ${ey - 2.5} ${ex + 9.5} ${ey - 0.5} L${ex + 9.5} ${ey - 10} L${ex - 9.5} ${ey - 10} Z`} fill="#FBEEE2" />
+                <path d={`M${ex - 8.5} ${ey - 0.5} Q${ex} ${ey - 2.5} ${ex + 8.5} ${ey - 0.5}`} stroke={INK} strokeWidth="2" strokeLinecap="round" fill="none" />
+              </g>
+            )}
+          </g>
+        );
+      })}
     </g>
   );
 }
 
-function Mouth({ mood }: { mood: Mood }) {
-  const stroke = { stroke: "var(--color-ink)", strokeWidth: 3.5, strokeLinecap: "round" as const, fill: "none" };
+function Mouth({ mood, talking, level }: { mood: Mood; talking: boolean; level: number }) {
+  const line = { stroke: INK, strokeWidth: 3, strokeLinecap: "round" as const, fill: "none" };
+  if (talking) {
+    const open = 1.5 + level * 9;
+    return (
+      <g>
+        <ellipse cx="100" cy={124 + open / 3} rx={5.5 + level * 3} ry={open} fill="#4A2F38" />
+        {open > 5 && <ellipse cx="100" cy={124 + open / 3 + open * 0.5} rx={4} ry={open * 0.35} fill="#FF8E98" />}
+      </g>
+    );
+  }
   switch (mood) {
     case "happy":
     case "cheer":
       return (
         <g>
-          <path d="M82 121 Q100 138 118 121 Z" fill="var(--color-ink)" />
-          <rect x="91" y="121" width="7" height="6" rx="1.5" fill="white" />
-          <rect x="102" y="121" width="7" height="6" rx="1.5" fill="white" />
+          <path d="M91 121 Q100 133 109 121 Z" fill="#4A2F38" />
+          <path d="M95 127 Q100 130 105 127" stroke="#FF8E98" strokeWidth="2.5" strokeLinecap="round" fill="none" />
         </g>
       );
-    case "oops":
-      return <path d="M88 128 Q100 120 112 128" {...stroke} />;
-    case "sleepy":
-      return <ellipse cx="100" cy="125" rx="4" ry="5" fill="var(--color-ink)" />;
-    case "think":
-      return <path d="M92 125 L110 122" {...stroke} />;
-    case "focus":
-      return <path d="M92 124 Q100 127 108 124" {...stroke} />;
-    default:
-      return <path d="M88 122 Q100 131 112 122" {...stroke} />;
+    case "oops": return <ellipse cx="100" cy="125" rx="3.5" ry="4.5" fill="#4A2F38" />;
+    case "sleepy": return <ellipse cx="100" cy="125" rx="2.5" ry="3" fill="#4A2F38" />;
+    case "think": return <path d="M94 125 L106 123" {...line} />;
+    case "focus": return <path d="M95 124 Q100 126 105 124" {...line} />;
+    default: return <path d="M93 122 Q100 129 107 122" {...line} />;
   }
 }
