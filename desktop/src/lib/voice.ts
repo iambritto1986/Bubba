@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { CHARACTERS, getCharacter } from "./characters";
 import { API_URL } from "./env";
+import { pushMouthFrame, voiceRange } from "./visemes";
 
 /**
  * Bubba's voice: fetches a line from /api/speak (ElevenLabs on the server), plays it,
@@ -68,14 +69,22 @@ function setLevel(v: number, s: boolean) {
   level = v; speaking = s; emit();
 }
 
+let freqRaw: Uint8Array<ArrayBuffer> | null = null;
+const freqVoice = new Uint8Array(128);
+
 function meter() {
-  if (!analyser || !current || current.paused) { setLevel(0, false); return; }
+  if (!analyser || !current || current.paused) { setLevel(0, false); pushMouthFrame(0, null); return; }
   const buf = new Uint8Array(analyser.fftSize);
   analyser.getByteTimeDomainData(buf);
   let sum = 0;
   for (const b of buf) { const x = (b - 128) / 128; sum += x * x; }
   const rms = Math.sqrt(sum / buf.length);
-  setLevel(Math.min(1, rms * 5), true);
+  const lvl = Math.min(1, rms * 5);
+  setLevel(lvl, true);
+  // mouth shapes for the lip-sync layer
+  freqRaw ??= new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqRaw);
+  pushMouthFrame(lvl, voiceRange(freqRaw, analyser.context.sampleRate, freqVoice));
   raf = requestAnimationFrame(meter);
 }
 

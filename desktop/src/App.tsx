@@ -10,6 +10,8 @@ import { isCharacterId, setCharacter, setPicking, useCharacter, usePicking, type
 import { setMuted, setVoiceTokenGetter, stopSpeaking, useMuted } from "./lib/voice";
 import { bringBack, tuckAway, useTucked } from "./lib/tuck";
 import { SIZES, setWindowSize, startDrag } from "./lib/windowCtl";
+import { setRenderMode, useRenderMode } from "./lib/renderMode";
+import { setWakeEnabled, useWakeEnabled, useWakeStatus } from "./lib/wakeword";
 
 export default function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -142,6 +144,9 @@ function Shell({ mood, children }: { mood: Mood; children: React.ReactNode }) {
   const { signOut } = useClerk();
   const muted = useMuted();
   const tucked = useTucked();
+  const renderMode = useRenderMode();
+  const wakeOn = useWakeEnabled();
+  const wakeStatus = useWakeStatus();
   const [waking, setWaking] = useState(false);
 
   const comeBack = () => {
@@ -168,15 +173,36 @@ function Shell({ mood, children }: { mood: Mood; children: React.ReactNode }) {
 
       {/* Children stay mounted while tucked so the timer and chat keep running. */}
       <div className={`group h-full flex-col items-center justify-end gap-3 p-4 font-sans ${tucked ? "hidden" : "flex"}`}>
-        <div className="pointer-events-none fixed right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-          <ToolBtn label={muted ? "Unmute Bubba" : "Mute Bubba"} onClick={() => setMuted(!muted)}>{muted ? "🔇" : "🔊"}</ToolBtn>
-          {isSignedIn && <ToolBtn label="Switch companion" onClick={() => setPicking(true)}>⇄</ToolBtn>}
-          {isSignedIn && <ToolBtn label="Sign out" onClick={() => signOut()}>⎋</ToolBtn>}
-          <ToolBtn label="Tuck Bubba away" onClick={tuckAway}>–</ToolBtn>
+        <div className="pointer-events-none fixed right-3 top-3 z-20 flex flex-col items-end gap-1.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+          <div className="flex gap-1">
+            <ToolBtn
+              label={renderMode === "video" ? "Switch to live 3D (real lip-sync)" : "Switch to video look"}
+              onClick={() => setRenderMode(renderMode === "video" ? "3d" : "video")}
+            >
+              {renderMode === "video" ? "🎬" : "🧊"}
+            </ToolBtn>
+            {isSignedIn && (
+              <ToolBtn
+                label={
+                  !wakeOn ? "Turn on \"Hey Oliver\" (listens on this PC only)"
+                  : wakeStatus === "unavailable" ? "Wake word model not installed yet (run 'Get wake word model.bat')"
+                  : wakeStatus === "error" ? "Wake word couldn't use the microphone"
+                  : "\"Hey Oliver\" is on (local). Click to turn off"
+                }
+                onClick={() => setWakeEnabled(!wakeOn)}
+              >
+                {wakeOn ? (wakeStatus === "listening" || wakeStatus === "paused" ? "👂" : "⚠") : "🔕"}
+              </ToolBtn>
+            )}
+            <ToolBtn label={muted ? "Unmute Bubba" : "Mute Bubba"} onClick={() => setMuted(!muted)}>{muted ? "🔇" : "🔊"}</ToolBtn>
+            {isSignedIn && <ToolBtn label="Switch companion" onClick={() => setPicking(true)}>⇄</ToolBtn>}
+            {isSignedIn && <ToolBtn label="Sign out" onClick={() => signOut()}>⎋</ToolBtn>}
+            <ToolBtn label="Tuck Bubba away" onClick={tuckAway}>–</ToolBtn>
+          </div>
         </div>
         <div className="w-full">{children}</div>
         <div onMouseDown={(e) => e.button === 0 && startDrag()} className="cursor-grab active:cursor-grabbing">
-          <Bubba mood={waking ? "cheer" : mood} size={170} />
+          <Bubba mood={waking ? "cheer" : mood} size={175} />
         </div>
       </div>
     </>

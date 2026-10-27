@@ -1,8 +1,18 @@
+mod skills;
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, PhysicalPosition,
 };
+
+/// Folder holding the character videos (copied next to bubba.exe by "Build and start Bubba.bat";
+/// they're too big to embed in the exe). The webview loads them through the asset protocol.
+#[tauri::command]
+fn media_root(app: AppHandle) -> Result<String, String> {
+    let dir = app.path().resource_dir().map_err(|e| e.to_string())?.join("media");
+    Ok(dir.to_string_lossy().into_owned())
+}
 
 fn show_bubba(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -15,6 +25,15 @@ fn show_bubba(app: &AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            skills::open_url,
+            skills::open_folder,
+            skills::launch_app,
+            skills::read_clipboard,
+            skills::write_clipboard,
+            skills::active_window,
+            media_root,
+        ])
         .setup(|app| {
             // Tray icon: the way back when Bubba is hidden, and the way to quit.
             let show = MenuItem::with_id(app, "show", "Show Bubba", true, None::<&str>)?;

@@ -2,9 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { useApi, type Profile } from "../lib/api";
 import { CHARACTERS, getCharacter } from "../lib/characters";
 import { chatActive, setChatTools, startChat, stopChat, tellBubba, useChat } from "../lib/conversation";
+import { isReactionName, REACTIONS, triggerExpression, type ReactionName } from "../lib/expressions";
+import { routineSummary } from "../lib/routine";
+
+/** Pull the matching prop out of his pocket while a tool runs (the agent can still pick its own). */
+const prop = (r: ReactionName) => triggerExpression(r, { force: true });
 import { tuckAway } from "../lib/tuck";
 import { fmt, usePomodoro } from "../lib/usePomodoro";
-import { useSay } from "../lib/voice";
+import { say, useSay } from "../lib/voice";
+import * as agenda from "../lib/agenda";
+import { openThing, playMusic, readClipboard, webSearch, writeClipboard } from "../lib/skills";
+import { onDrift, screenContext, setFocusContext, startScreenWatch } from "../lib/screen";
+import { ReminderBubble } from "./ReminderBubble";
+import { initWake, onWake, pauseWake } from "../lib/wakeword";
+import { bringBack } from "../lib/tuck";
+import { walkWindowToCorner } from "../lib/windowCtl";
+import { isOutfitName, OUTFITS, setOutfit } from "../lib/outfits";
 import type { Mood } from "./Bubba";
 import { QuizCard } from "./QuizCard";
 import { Btn, SpeechBubble } from "./SpeechBubble";
@@ -32,6 +45,7 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
   const start = async (opts: { intention?: string; minutes?: number } = {}) => {
     const what = (opts.intention ?? intention).trim();
     setIntention(what);
+    void walkWindowToCorner("right");
     p.startFocus(opts.minutes);
     const s = await api<{ id: string }>("/api/sessions", {
       method: "POST",
@@ -41,6 +55,7 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
   };
 
   const finish = async (completed: boolean) => {
+    if (completed) triggerExpression("proud_cheer", { force: true });
     if (sessionId) await api(`/api/sessions/${sessionId}`, { method: "PATCH", body: { completed } }).catch(() => {});
     setSessionId(null);
     setIntention("");
@@ -82,9 +97,49 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
         window.setTimeout(() => { void stopChat(); void tuckAway(); }, 1800);
         return "Tucking away now.";
       },
+      express: ({ reaction }) => {
+        if (isReactionName(reaction)) {
+          triggerExpression(reaction, { force: true });
+          return `Performed ${reaction}.`;
+        }
+        return `Unknown reaction. Available: ${REACTIONS.join(", ")}`;
+      },
+      change_outfit: ({ outfit }) => {
+        if (!isOutfitName(outfit)) return `Unknown outfit. Available: ${OUTFITS.join(", ")}`;
+        setOutfit(outfit);
+        return outfit === "default" ? "Changing back into everyday clothes." : `Changing into the ${outfit} outfit.`;
+      },
+      // ---- PC skills ----
+      open_app: ({ name: what }) => openThing(String(what ?? "")),
+      open_website: ({ url }) => openThing(String(url ?? "")),
+      web_search: ({ query }) => webSearch(String(query ?? "")),
+      play_music: ({ query }) => playMusic(String(query ?? "")),
+      read_clipboard: async () => {
+        const t = await readClipboard();
+        return t ? `Clipboard text:\n${t}` : "The clipboard is empty.";
+      },
+      copy_to_clipboard: ({ text }) => writeClipboard(String(text ?? "")),
+      // ---- tasks, reminders, notes ----
+      add_task: ({ title, due }) => { prop("take_note"); return agenda.addTask(String(title ?? ""), due ? String(due) : undefined); },
+      list_tasks: () => { prop("list_out"); return agenda.listTasks(); },
+      complete_task: ({ task }) => agenda.completeTask(String(task ?? "")),
+      remove_task: ({ task }) => agenda.removeTask(String(task ?? "")),
+      add_reminder: ({ text, in_minutes, at }) => { prop("take_note"); return agenda.addReminder(String(text ?? ""), in_minutes, at); },
+      list_reminders: () => agenda.listReminders(),
+      cancel_reminder: ({ reminder }) => agenda.cancelReminder(String(reminder ?? "")),
+      add_note: ({ text }) => { prop("take_note"); return agenda.addNote(String(text ?? "")); },
+      find_notes: ({ query }) => agenda.findNotes(query ? String(query) : undefined),
+      delete_note: ({ note }) => agenda.deleteNote(String(note ?? "")),
+      // ---- awareness ----
+      get_screen_context: () => screenContext(),
+      get_time: () => new Date().toLocaleString([], { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }),
       get_status: () => {
         const l = live.current;
         return JSON.stringify({
+          now: new Date().toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit" }),
+          open_tasks: agenda.getAgenda().tasks.filter((t) => !t.done).length,
+          // what you were up to on your own before they called you (your daily routine)
+          you_were_just: routineSummary(),
           state: l.p.phase,
           paused: l.p.paused,
           time_left: l.p.phase === "focus" || l.p.phase === "break" ? fmt(l.p.msLeft) : null,
@@ -95,6 +150,44 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
       },
     });
   }, [profile.focusMinutes]);
+
+  // Screen awareness: local window titles only; nudges when drifting during focus.
+  useEffect(() => { startScreenWatch(); }, []);
+  useEffect(() => { setFocusContext(p.phase === "focus" && !p.paused, intention); }, [p.phase, p.paused, intention]);
+  useEffect(
+    () =>
+      onDrift((what) => {
+        triggerExpression("caught_you", { force: true });
+        const back = live.current.intention ? `back to ${live.current.intention}` : "back to it";
+        if (chatActive()) tellBubba(`${name} has been on ${what} for a minute during their focus session. Gently nudge them ${back}.`);
+        else void say(`Psst, ${name}. ${what}? Let's get ${back}.`);
+      }),
+    [name],
+  );
+
+  // Reminders: Oliver checks his pocket watch and tells you.
+  useEffect(
+    () =>
+      agenda.onReminderDue((r) => {
+        triggerExpression("announce", { force: true });
+        if (chatActive()) tellBubba(`A reminder just came due: "${r.text}". Tell ${name} now.`);
+        else void say(`${name}, a reminder: ${r.text}.`);
+      }),
+    [name],
+  );
+
+  // "Hey Oliver": local wake word. It hands the mic over to the chat and takes it back afterwards.
+  useEffect(() => { initWake(); }, []);
+  useEffect(() => { pauseWake(chat.status !== "off"); }, [chat.status]);
+  const toggleTalkRef = useRef<() => void>(() => {});
+  useEffect(
+    () =>
+      onWake(() => {
+        void bringBack();
+        if (!chatActive()) toggleTalkRef.current();
+      }),
+    [],
+  );
 
   // Keep Bubba in the loop when the timer changes on its own.
   const prevPhase = useRef(p.phase);
@@ -126,11 +219,14 @@ export function Buddy({ profile, onMood }: { profile: Profile; onMood: (m: Mood)
     );
   };
 
+  toggleTalkRef.current = toggleTalk;
+
   // The only scripted line left: a heads-up when the timer runs out and you're not already chatting.
   useSay(p.phase === "check-in" && !talking ? `Time's up, ${name}.` : undefined);
 
   return (
     <div className="flex w-full flex-col gap-2">
+      <ReminderBubble />
       {bubble()}
       <TalkBar status={chat.status} error={chat.error} onToggle={toggleTalk} />
     </div>

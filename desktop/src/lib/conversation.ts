@@ -1,6 +1,9 @@
 import { Conversation } from "@elevenlabs/client";
 import { useSyncExternalStore } from "react";
+import { inferReactionFromText, triggerExpression } from "./expressions";
+import { cancelOutfitRevert, inferOutfitFromText, scheduleOutfitRevert, setOutfit } from "./outfits";
 import { pushVoiceLevel, setLiveVoice } from "./voice";
+import { pushMouthFrame } from "./visemes";
 
 /**
  * Two-way voice chat with Bubba (ElevenLabs Agents over WebRTC).
@@ -11,10 +14,9 @@ export type ChatStatus = "off" | "connecting" | "listening" | "speaking";
 export type ChatState = { status: ChatStatus; agentLine: string | null; userLine: string | null; error: string | null };
 
 type ToolFn = (params: Record<string, unknown>) => string | Promise<string>;
-const TOOL_NAMES = ["start_focus", "control_timer", "get_status", "tuck_away"] as const;
-let tools: Partial<Record<(typeof TOOL_NAMES)[number], ToolFn>> = {};
-/** The Buddy screen registers what each tool does (it owns the timer). */
-export function setChatTools(t: typeof tools) { tools = t; }
+let tools: Record<string, ToolFn> = {};
+/** The Buddy screen registers what each tool does (it owns the timer, agenda and PC skills). */
+export function setChatTools(t: Record<string, ToolFn>) { tools = t; }
 
 let state: ChatState = { status: "off", agentLine: null, userLine: null, error: null };
 const listeners = new Set<() => void>();
@@ -31,6 +33,8 @@ function meter() {
   if (!conv) return;
   const v = Math.min(1, conv.getOutputVolume() * 2.5);
   pushVoiceLevel(v, mode === "speaking" && v > 0.02);
+  // live mouth shapes for the lip-sync layer (spectrum is already the 100–8000 Hz voice range)
+  pushMouthFrame(mode === "speaking" ? v : 0, mode === "speaking" ? conv.getOutputByteFrequencyData() : null);
   raf = requestAnimationFrame(meter);
 }
 
@@ -38,6 +42,7 @@ function cleanup(error: string | null = null) {
   cancelAnimationFrame(raf);
   conv = null;
   setLiveVoice(false);
+  scheduleOutfitRevert();
   set({ status: "off", error });
 }
 
@@ -48,11 +53,22 @@ export async function startChat(
 ) {
   if (state.status !== "off") return;
   set({ status: "connecting", agentLine: null, userLine: null, error: null });
+  cancelOutfitRevert();
   setLiveVoice(true);
   try {
     const conversationToken = await getToken();
+    // Every registered skill becomes a client tool; errors come back as plain words for the agent.
     const clientTools = Object.fromEntries(
-      TOOL_NAMES.map((name) => [name, async (p: Record<string, unknown>) => (await tools[name]?.(p ?? {})) ?? "That isn't available right now."]),
+      Object.keys(tools).map((name) => [
+        name,
+        async (p: Record<string, unknown>) => {
+          try {
+            return (await tools[name]?.(p ?? {})) ?? "That isn't available right now.";
+          } catch (e) {
+            return `That didn't work: ${e instanceof Error ? e.message : String(e)}`;
+          }
+        },
+      ]),
     );
     conv = await Conversation.startSession({
       conversationToken,
@@ -64,7 +80,17 @@ export async function startChat(
       },
       clientTools,
       onModeChange: ({ mode: m }) => { mode = m; if (conv) set({ status: m }); },
-      onMessage: ({ role, message }) => set(role === "agent" ? { agentLine: message } : { userLine: message }),
+      onMessage: ({ role, message }) => {
+        set(role === "agent" ? { agentLine: message } : { userLine: message });
+        // Gestures come from the agent's own `express` tool calls (it knows what it means);
+        // keyword guessing on transcripts only covers greetings/goodbyes from the person.
+        const cue = role !== "agent" ? inferReactionFromText("user", message) : null;
+        if (cue === "wave") triggerExpression(cue);
+        if (role !== "agent") {
+          const look = inferOutfitFromText(message);
+          if (look) setOutfit(look);
+        }
+      },
       onDisconnect: () => cleanup(),
       onError: (message) => console.error("Bubba voice:", message),
     });

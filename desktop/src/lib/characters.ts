@@ -22,7 +22,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     tagline: "A gentleman with a butler's poise",
     voiceId: "hRbsi7Sgd2GnL8siHYj9", // "Bubba Voice": calm British gentleman
     persona:
-      "You are a gentleman companion with the poise of a royal butler: calm, refined, quietly witty, light British accent, warm but composed, never gushing.",
+      "You are a gentleman companion with the poise of a royal butler: calm, refined, quietly witty, playfully charming when bantering, light British accent, warm but composed, never gushing.",
     greeting: "Good to see you, {{user_name}}. What are we working on?",
   },
   aria: {
@@ -31,7 +31,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     tagline: "Graceful, warm and encouraging",
     voiceId: "2BQALMFPbN7xISP4nS19", // "Aria Voice": elegant, warm young woman
     persona:
-      "You are an elegant, graceful lady companion with a storybook-queen warmth: kind, calm, confident and encouraging, with a gentle sense of humour. Never saccharine.",
+      "You are an elegant, graceful lady companion with a storybook-queen warmth: kind, calm, confident, playfully witty when bantering, and encouraging. Never saccharine.",
     greeting: "Hello, {{user_name}}. What shall we work on today?",
   },
 };
@@ -59,3 +59,33 @@ export const useCharacter = () => useSyncExternalStore(subscribe, () => current)
 /** Show the "choose your companion" screen again (from the toolbar). */
 export function setPicking(v: boolean) { picking = v; emit(); }
 export const usePicking = () => useSyncExternalStore(subscribe, () => picking);
+
+/* ------------------------------------------------------------------ *
+ * Attires: looks the person chooses for their companion. The first one is
+ * the default. An attire only appears once its clips ship in
+ * /videos/<char>/attires/<id>/ (listed under "attires" in manifest.json).
+ * ------------------------------------------------------------------ */
+export type AttireDef = { id: string; label: string };
+
+export const ATTIRES: Record<CharacterId, AttireDef[]> = {
+  oliver: [{ id: "default", label: "Butler" }],
+  aria: [
+    { id: "default", label: "Rose dress" },
+    { id: "flight_attendant", label: "Flight attendant" },
+    { id: "casual", label: "Casual" },
+    { id: "evening", label: "Evening gown" },
+  ],
+};
+
+const attireKey = (c: CharacterId) => `bubba_attire_${c}`;
+const attires: Record<CharacterId, string> = {
+  oliver: (() => { try { return localStorage.getItem(attireKey("oliver")) ?? "default"; } catch { return "default"; } })(),
+  aria: (() => { try { return localStorage.getItem(attireKey("aria")) ?? "default"; } catch { return "default"; } })(),
+};
+
+export function setAttire(c: CharacterId, id: string) {
+  attires[c] = id;
+  try { localStorage.setItem(attireKey(c), id); } catch { /* ignore */ }
+  emit();
+}
+export const useAttire = (c: CharacterId) => useSyncExternalStore(subscribe, () => attires[c]);

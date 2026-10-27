@@ -1,6 +1,20 @@
 node_modules/
 dist/
+__pycache__/
 .env
 .env.local
 desktop/src-tauri/target/
 desktop/src-tauri/gen/schemas
+desktop/public/videos/**/*.webm
+desktop/public/videos/**/*.png
+!desktop/public/videos/**/manifest.json
+!desktop/public/videos/**/lips/lips.json
+desktop/public/models/vosk/
+*.bak
+Get *.bat
+Download *.bat
+Rebuild Bubba.bat
+character3d/*
+!character3d/README.md
+character-video/raw/
+*.blend1
