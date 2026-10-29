@@ -20,6 +20,8 @@ type VideoManifest = {
   outfits?: Record<string, { clips: string[]; anchors?: { stand?: string; sit?: string } }>;
   /** Looks the person can choose (e.g. Aria's flight-attendant uniform), in `videos/<char>/attires/<id>/`. */
   attires?: Record<string, { clips: string[]; anchors?: { stand?: string; sit?: string } }>;
+  /** false = don't draw the live mouth overlay (her "closed-mouth" clips still move their own mouth). */
+  lipsync?: boolean;
 };
 
 const manifestCache = new Map<VideoVariant, VideoManifest | null>();
@@ -101,7 +103,7 @@ const LOOP = {
   think: ["thinking"],
   talk: ["talk_count", "talk_point", "talk_shape", "talk_casual", "talking"],
   /** Closed-mouth gesture clips with a face track: the lip-sync layer draws the mouth live. */
-  talkSynced: ["mute_point", "mute_shape", "mute_heart", "mute_explain", "mute_excited", "mute_thoughtful", "mute_casual2"],
+  talkSynced: ["mute_point", "mute_shape", "mute_heart", "mute_explain", "mute_excited", "mute_thoughtful", "mute_casual", "mute_casual2"],
   walk: ["walk"],
   sit: ["sitting_focus", "sitting_focus", "sit_read", "sit_tea"],
 } as const;
@@ -297,7 +299,7 @@ export default function CharacterVideo({
       const lips = lipsRef.current;
       const name = current.current;
       const v = slots[activeSlot.current].current;
-      if (!lips || !name || !v || loading.current || currentOutfit.current !== "default") return;
+      if (!lips || !name || !v || loading.current || currentOutfit.current !== "default" || manifestRef.current?.lipsync === false) return;
       // attire clips have their own face tracks, keyed "<attire>/<clip>" (same face, so same mouth sprites)
       const track = lips.data.tracks[trackKey(name)];
       if (!track || !v.videoWidth) return;
@@ -410,6 +412,8 @@ export default function CharacterVideo({
     }
 
     if (m === "talk") {
+      if (manifestRef.current?.lipsync === false) // no overlay: play gesture clips with their own mouth movement
+        return pickFresh(LOOP.talk) ?? pickFresh(LOOP.talkSynced) ?? first(LOOP.idle);
       const synced = lipsRef.current ? pickFresh(LOOP.talkSynced.filter((c) => !!lipsRef.current?.data.tracks[trackKey(c)])) : null;
       return synced ?? pickFresh(LOOP.talk) ?? first(LOOP.idle);
     }

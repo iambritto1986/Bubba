@@ -65,15 +65,15 @@ export const usePicking = () => useSyncExternalStore(subscribe, () => picking);
  * the default. An attire only appears once its clips ship in
  * /videos/<char>/attires/<id>/ (listed under "attires" in manifest.json).
  * ------------------------------------------------------------------ */
-export type AttireDef = { id: string; label: string };
+export type AttireDef = { id: string; label: string; short?: string };
 
 export const ATTIRES: Record<CharacterId, AttireDef[]> = {
   oliver: [{ id: "default", label: "Butler" }],
   aria: [
-    { id: "default", label: "Rose dress" },
-    { id: "flight_attendant", label: "Flight attendant" },
+    { id: "default", label: "Rose dress", short: "Dress" },
+    { id: "flight_attendant", label: "Flight attendant", short: "Flight" },
     { id: "casual", label: "Casual" },
-    { id: "evening", label: "Evening gown" },
+    { id: "evening", label: "Evening gown", short: "Evening" },
   ],
 };
 

@@ -4,23 +4,84 @@
     "sit": "anchor_sit.png"
   },
   "clips": [
+    "bowtie",
+    "care_heart",
+    "care_lean",
+    "caught_you",
+    "cheer",
+    "chuckle",
+    "dance_twirl",
+    "greet_bow",
     "idle",
-    "talking",
-    "listening",
-    "thinking",
-    "walk",
+    "idle_2",
+    "life_watering",
+    "life_yoga",
+    "listen_tilt",
+    "mute_casual",
+    "mute_explain",
+    "mute_heart",
+    "mute_point",
+    "nod_yes",
+    "pocket_confetti",
+    "pocket_watch",
+    "prop_book",
+    "prop_coffee",
+    "prop_notebook",
+    "prop_water",
+    "shake_no",
+    "shrug",
     "sit_down",
+    "sit_sleep",
     "sitting_focus",
     "stand_up",
-    "flirty_wink",
-    "cheeky_smirk",
-    "warm_laugh",
-    "flattered",
-    "gentleman_bow",
-    "proud_cheer",
-    "sympathetic",
     "surprised",
-    "caught_you",
-    "sleepy_yawn"
-  ]
+    "thinking",
+    "walk",
+    "wave",
+    "wink",
+    "yawn"
+  ],
+  "outfits": {},
+  "attires": {
+    "flight_attendant": {
+      "clips": [
+        "idle",
+        "listen_tilt",
+        "mute_casual",
+        "mute_explain",
+        "thinking",
+        "wave"
+      ],
+      "anchors": {
+        "stand": "anchor_stand.png"
+      }
+    },
+    "casual": {
+      "clips": [
+        "idle",
+        "listen_tilt",
+        "mute_casual",
+        "mute_explain",
+        "thinking",
+        "wave"
+      ],
+      "anchors": {
+        "stand": "anchor_stand.png"
+      }
+    },
+    "evening": {
+      "clips": [
+        "idle",
+        "listen_tilt",
+        "mute_casual",
+        "mute_explain",
+        "thinking",
+        "wave"
+      ],
+      "anchors": {
+        "stand": "anchor_stand.png"
+      }
+    }
+  },
+  "lipsync": false
 }

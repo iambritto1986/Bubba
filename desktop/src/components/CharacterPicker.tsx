@@ -20,20 +20,21 @@ function useAvailableAttires(id: CharacterId) {
   return ATTIRES[id].filter((a) => ids.includes(a.id));
 }
 
-function AttireChips({ id }: { id: CharacterId }) {
+function AttireChips({ id, onPick }: { id: CharacterId; onPick: (id: CharacterId) => void }) {
   const options = useAvailableAttires(id);
   const current = useAttire(id);
   if (options.length < 2) return null;
   return (
-    <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+    <div className="mt-1.5 grid w-full grid-cols-2 gap-1">
       {options.map((a) => (
         <span
           key={a.id}
           role="button"
           tabIndex={0}
-          onClick={(e) => { e.stopPropagation(); setAttire(id, a.id); }}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setAttire(id, a.id); } }}
-          className={`cursor-pointer rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors ${
+          onClick={(e) => { e.stopPropagation(); setAttire(id, a.id); onPick(id); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setAttire(id, a.id); onPick(id); } }}
+          title={a.short ?? a.label}
+          className={`cursor-pointer truncate rounded-full px-1.5 py-0.5 text-[10px] font-bold transition-colors ${
             current === a.id ? "bg-hippo text-cream" : "bg-cream/80 text-ink/70 hover:text-ink"
           }`}
         >
@@ -48,6 +49,7 @@ function AttireChips({ id }: { id: CharacterId }) {
 export function CharacterPicker({ onPick, onCancel }: { onPick: (id: CharacterId) => void; onCancel?: () => void }) {
   return (
     <SpeechBubble id="pick">
+      <div className="max-h-[calc(100vh-11rem)] overflow-y-auto">
       <p className="text-sm font-bold">Choose your companion</p>
       <p className="text-xs font-semibold text-ink/55">You can switch any time.</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -61,15 +63,16 @@ export function CharacterPicker({ onPick, onCancel }: { onPick: (id: CharacterId
               onClick={() => onPick(id)}
               className="flex flex-col items-center rounded-2xl bg-hippo-belly/35 px-2 pb-2 pt-1 ring-2 ring-transparent transition-[box-shadow,background-color] hover:bg-hippo-belly/60 hover:ring-hippo"
             >
-              <Bubba character={id} mood="happy" size={92} />
+              <Bubba character={id} mood="happy" size={72} />
               <span className="mt-1 text-sm font-extrabold">{c.name}</span>
               <span className="text-[11px] font-semibold leading-tight text-ink/60">{c.tagline}</span>
-              <AttireChips id={id} />
+              <AttireChips id={id} onPick={onPick} />
             </motion.button>
           );
         })}
       </div>
       {onCancel && <div className="mt-2 flex justify-end"><Btn variant="ghost" onClick={onCancel}>Keep current</Btn></div>}
+      </div>
     </SpeechBubble>
   );
 }
